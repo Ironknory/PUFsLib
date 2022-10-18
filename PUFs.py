@@ -83,7 +83,7 @@ class iPUF(XORAPUF):
         assert self.challenge.shape[-1] == self.weightX.shape[-1], "x-XOR APUF Shape Error"
         assert self.challenge.shape[-1] == self.weightY.shape[-1] - 1, "y-XOR APUF Shape Error"
         assert self.interplace >= 0 and self.interplace < self.challenge.shape[-1], "Interpose place Error"
-    
+     
     def forwardX(self):
         ans = torch.sum(self.challenge * self.weightX, dim=1, keepdim=True)
         return ans
@@ -109,15 +109,62 @@ class iPUF(XORAPUF):
         weightY = torch.normal(0, sqrt(0.05), size=(y, length + 2))
         return iPUF(challenge, weightX, weightY, interplace=length//2, transformed=False)
         
-
+class MPUF(APUF):
+    def __init__(self, challenge, weightR, weightD, transformed=False):
+        self.challenge = challenge
+        self.weightR, self.weightD = weightR, weightD
+        if not transformed:
+            self.challenge = MPUF.transform(self.challenge)
+        assert self.challenge.shape[-1] == self.weightD.shape[-1], "Data APUF Shape Error"
+        assert self.challenge.shape[-1] == self.weightR.shape[-1], "Select APUF Shape Error"
+        assert self.weightD.shape[0] == 2 ** self.weightR.shape[0], "D&R not Match"
+    
+    def forwardR(self):
+        ans = torch.sum(self.challenge * self.weightR, dim=1, keepdim=True)
+        return ans
+    
+    def forwardD(self):
+        ans = torch.sum(self.challenge * self.weightD, dim=1, keepdim=True)
+        return ans
+    
+    def getSelect(self):
+        ans = self.forwardR()
+        select = 0
+        for i in range(ans.shape[0] - 1, -1, -1):
+            if ans[i] >= 0:
+                select = (select << 1) | 0
+            else:
+                select = (select << 1) | 1
+        return select
+    
+    def getResponse(self):
+        select = self.getSelect()
+        ans = self.forwardD()
+        response = torch.tensor([1])
+        if ans[select] >= 0:
+            response[0] = 0
+        return response
+    
+    def randomSample(s, length):
+        challenge = torch.tensor([randint(0, 1) for _ in range(length)])
+        weightR = torch.normal(0, sqrt(0.05), size=(s, length + 1))
+        weightD = torch.normal(0, sqrt(0.05), size=(2 ** s, length + 1))
+        return MPUF(challenge, weightR, weightD, transformed=False)
+    
 APUFSample = APUF.randomSample(128)
-print(APUFSample.forward())
-print(APUFSample.getResponse())
+print("Ans =", APUFSample.forward())
+print("Response =", APUFSample.getResponse())
 
 XORAPUFSample = XORAPUF.randomSample(2, 128)
-print(XORAPUFSample.forward())
-print(XORAPUFSample.getResponse())
+print("Ans =", XORAPUFSample.forward())
+print("Response =", XORAPUFSample.getResponse())
 
 iPUFSample = iPUF.randomSample(2, 2, 128)
-print(iPUFSample.forward())
-print(iPUFSample.getResponse())
+print("Ans =", iPUFSample.forward())
+print("Response =", iPUFSample.getResponse())
+
+MPUFSample = MPUF.randomSample(2, 128)
+print("AnsR =", MPUFSample.forwardR())
+print("AnsD =", MPUFSample.forwardD())
+print("Select =", MPUFSample.getSelect())
+print("Response =", MPUFSample.getResponse())
