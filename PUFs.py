@@ -1,4 +1,3 @@
-from operator import xor
 import torch
 from random import randint
 from math import sqrt
