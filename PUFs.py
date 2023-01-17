@@ -6,28 +6,27 @@ class APUF:
     # Arbiter PUF
     # attribute:
     #   challenge: the challenge bits, with the length of 64 or 128
+    #   phi: phi, with the length of 64 or 128
     #   weight: the delay of each stage, wiith the length of 64 + 1 or 128 + 1
     # method:
-    #   transform: transform challenge to PHI
+    #   initChallenge: init or change challenge and phi
     #   forward: calculate the total time delay of the PUF
     #   getResponse: get the response by forward mothod
     #   randomSample: inital a APUF class with random challenge(ramdon 0/1) and weight(normal distribution)
-    
-    def transform(challenge):
-        challenge = torch.cat((challenge, torch.ones(size=(1,))), 0)
-        for i in range(challenge.shape[0] - 2, -1, -1):
-            challenge[i] = challenge[i + 1] * (1 - 2 * challenge[i])
-        return challenge
 
-    def __init__(self, challenge, weight, transformed=False):
+    def initChallenge(self, challenge):
         self.challenge = challenge
+        self.phi = torch.cat((challenge, torch.ones(size=(1,))), 0)
+        for i in range(self.phi.shape[0] - 2, -1, -1):
+            self.phi[i] = self.phi[i + 1] * (1 - 2 * self.phi[i])
+
+    def __init__(self, challenge, weight):
+        self.initChallenge(challenge)
         self.weight = weight
-        if not transformed:
-            self.challenge = APUF.transform(self.challenge)
-        assert self.challenge.shape[-1] == self.weight.shape[-1], "Shape Error"
-            
+        assert self.phi.shape[-1] == self.weight.shape[-1], "Shape Error"
+    
     def forward(self):
-        ans = torch.sum(self.challenge * self.weight, dim=0, keepdim=True)
+        ans = torch.sum(self.phi * self.weight, dim=0, keepdim=True)
         return ans
     
     def getResponse(self):
@@ -43,17 +42,17 @@ class APUF:
     def randomSample(length):
         challenge = torch.tensor([randint(0, 1) for _ in range(length)])
         weight = torch.normal(0, sqrt(0.05), size=(length + 1, ))
-        return APUF(challenge, weight, transformed=False)
+        return APUF(challenge, weight)
 
 class XORAPUF(APUF):
     def forward(self):
-        ans = torch.sum(self.challenge * self.weight, dim=1, keepdim=True)
+        ans = torch.sum(self.phi * self.weight, dim=1, keepdim=True)
         return ans
 
     def randomSample(n, length):
         challenge = torch.tensor([randint(0, 1) for _ in range(length)])
         weight = torch.normal(0, sqrt(0.05), size=(n, length + 1))
-        return XORAPUF(challenge, weight, transformed=False)
+        return XORAPUF(challenge, weight)
 
 class iPUF(XORAPUF):
     # Interpose PUF
@@ -64,32 +63,30 @@ class iPUF(XORAPUF):
     #   flipChallenge: calculate the challenge after being interposed
     #       intsert the bit of challenge[interplace], flip challenge[0~interplace] if interbit is 1
     
-    def flipChallenge(interbit, interplace, challenge):
-        tmplist = challenge.tolist()
+    def flipPhi(interbit, interplace, phi):
+        tmplist = phi.tolist()
         tmplist.insert(interplace, tmplist[interplace])
-        challenge = torch.tensor(tmplist)
+        phi = torch.tensor(tmplist)
         if interbit != 0:
             for i in range(interplace + 1):
-                challenge[i] = -challenge[i]
-        return challenge
+                phi[i] = -phi[i]
+        return phi
 
-    def __init__(self, challenge, weightX, weightY, interplace, transformed=False):
-        self.challenge = challenge
+    def __init__(self, challenge, weightX, weightY, interplace):
+        self.initChallenge(challenge)
         self.weightX, self.weightY = weightX, weightY
         self.interplace = interplace
-        if not transformed:
-            self.challenge = iPUF.transform(self.challenge)
-        assert self.challenge.shape[-1] == self.weightX.shape[-1], "x-XOR APUF Shape Error"
-        assert self.challenge.shape[-1] == self.weightY.shape[-1] - 1, "y-XOR APUF Shape Error"
+        assert self.phi.shape[-1] == self.weightX.shape[-1], "x-XOR APUF Shape Error"
+        assert self.phi.shape[-1] == self.weightY.shape[-1] - 1, "y-XOR APUF Shape Error"
         assert self.interplace >= 0 and self.interplace < self.challenge.shape[-1], "Interpose place Error"
      
     def forwardX(self):
-        ans = torch.sum(self.challenge * self.weightX, dim=1, keepdim=True)
+        ans = torch.sum(self.phi * self.weightX, dim=1, keepdim=True)
         return ans
     
     def forwardY(self, interbit):
-        challenge = iPUF.flipChallenge(interbit, self.interplace, self.challenge)
-        ans = torch.sum(challenge * self.weightY, dim=1, keepdim=True)
+        phiY = iPUF.flipPhi(interbit, self.interplace, self.phi)
+        ans = torch.sum(phiY * self.weightY, dim=1, keepdim=True)
         return ans
     
     def forward(self):
@@ -106,25 +103,23 @@ class iPUF(XORAPUF):
         challenge = torch.tensor([randint(0, 1) for _ in range(length)])
         weightX = torch.normal(0, sqrt(0.05), size=(x, length + 1))
         weightY = torch.normal(0, sqrt(0.05), size=(y, length + 2))
-        return iPUF(challenge, weightX, weightY, interplace=length//2, transformed=False)
+        return iPUF(challenge, weightX, weightY, interplace=length//2)
         
 class MPUF(APUF):
-    def __init__(self, challenge, weightR, weightD, transformed=False):
-        self.challenge = challenge
+    def __init__(self, challenge, weightR, weightD):
+        self.initChallenge(challenge)
         self.weightR, self.weightD = weightR, weightD
-        if not transformed:
-            self.challenge = MPUF.transform(self.challenge)
-        assert self.challenge.shape[-1] == self.weightD.shape[-1], "Data APUF Shape Error"
-        assert self.challenge.shape[-1] == self.weightR.shape[-1], "Select APUF Shape Error"
+        assert self.phi.shape[-1] == self.weightD.shape[-1], "Data APUF Shape Error"
+        assert self.phi.shape[-1] == self.weightR.shape[-1], "Select APUF Shape Error"
         assert self.weightD.shape[0] == 2 ** self.weightR.shape[0], "D&R not Match"
     
     def forwardR(self):
-        ans = torch.sum(self.challenge * self.weightR, dim=1, keepdim=True)
-        return ans
+        ansR = torch.sum(self.phi * self.weightR, dim=1, keepdim=True)
+        return ansR
     
     def forwardD(self):
-        ans = torch.sum(self.challenge * self.weightD, dim=1, keepdim=True)
-        return ans
+        ansD = torch.sum(self.phi * self.weightD, dim=1, keepdim=True)
+        return ansD
     
     def getSelect(self):
         ans = self.forwardR()
@@ -148,22 +143,41 @@ class MPUF(APUF):
         challenge = torch.tensor([randint(0, 1) for _ in range(length)])
         weightR = torch.normal(0, sqrt(0.05), size=(s, length + 1))
         weightD = torch.normal(0, sqrt(0.05), size=(2 ** s, length + 1))
-        return MPUF(challenge, weightR, weightD, transformed=False)
-    
-APUFSample = APUF.randomSample(128)
+        return MPUF(challenge, weightR, weightD)
+
+length = 128
+challenge = torch.tensor([randint(0, 1) for _ in range(128)])
+
+APUFSample = APUF.randomSample(length)
+print("Ans =", APUFSample.forward())
+print("Response =", APUFSample.getResponse())
+APUFSample.initChallenge(challenge)
 print("Ans =", APUFSample.forward())
 print("Response =", APUFSample.getResponse())
 
-XORAPUFSample = XORAPUF.randomSample(2, 128)
+XORAPUFSample = XORAPUF.randomSample(2, length)
+print("Ans =", XORAPUFSample.forward())
+print("Response =", XORAPUFSample.getResponse())
+XORAPUFSample.initChallenge(challenge)
 print("Ans =", XORAPUFSample.forward())
 print("Response =", XORAPUFSample.getResponse())
 
-iPUFSample = iPUF.randomSample(2, 2, 128)
+iPUFSample = iPUF.randomSample(2, 2, length)
+print("Ans =", iPUFSample.forward())
+print("Response =", iPUFSample.getResponse())
+iPUFSample.initChallenge(challenge)
 print("Ans =", iPUFSample.forward())
 print("Response =", iPUFSample.getResponse())
 
-MPUFSample = MPUF.randomSample(2, 128)
+
+MPUFSample = MPUF.randomSample(2, length)
 print("AnsR =", MPUFSample.forwardR())
 print("AnsD =", MPUFSample.forwardD())
 print("Select =", MPUFSample.getSelect())
 print("Response =", MPUFSample.getResponse())
+MPUFSample.initChallenge(challenge)
+print("AnsR =", MPUFSample.forwardR())
+print("AnsD =", MPUFSample.forwardD())
+print("Select =", MPUFSample.getSelect())
+print("Response =", MPUFSample.getResponse())
+
