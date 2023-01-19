@@ -5,6 +5,7 @@ from math import sqrt
 class APUF:
     # Arbiter PUF
     # attribute:
+    #   length：the length of PUF, usually 32 or 64 or 128
     #   challenge: the challenge bits, with the length of 64 or 128
     #   phi: phi, with the length of 64 or 128
     #   weight: the delay of each stage, wiith the length of 64 + 1 or 128 + 1
@@ -19,11 +20,13 @@ class APUF:
         self.phi = torch.cat((challenge, torch.ones(size=(1,))), 0)
         for i in range(self.phi.shape[0] - 2, -1, -1):
             self.phi[i] = self.phi[i + 1] * (1 - 2 * self.phi[i])
+        assert self.challenge.shape[-1] == self.length, "Shape Error"
 
-    def __init__(self, challenge, weight):
+    def __init__(self, length, challenge, weight):
+        self.length = length
         self.initChallenge(challenge)
         self.weight = weight
-        assert self.phi.shape[-1] == self.weight.shape[-1], "Shape Error"
+        assert self.weight.shape[-1] == self.length + 1, "Shape Error"
     
     def forward(self):
         ans = torch.sum(self.phi * self.weight, dim=0, keepdim=True)
@@ -42,7 +45,7 @@ class APUF:
     def randomSample(length):
         challenge = torch.tensor([randint(0, 1) for _ in range(length)])
         weight = torch.normal(0, sqrt(0.05), size=(length + 1, ))
-        return APUF(challenge, weight)
+        return APUF(length, challenge, weight)
 
 class XORAPUF(APUF):
     def forward(self):
@@ -52,7 +55,7 @@ class XORAPUF(APUF):
     def randomSample(n, length):
         challenge = torch.tensor([randint(0, 1) for _ in range(length)])
         weight = torch.normal(0, sqrt(0.05), size=(n, length + 1))
-        return XORAPUF(challenge, weight)
+        return XORAPUF(length, challenge, weight)
 
 class iPUF(XORAPUF):
     # Interpose PUF
@@ -72,13 +75,14 @@ class iPUF(XORAPUF):
                 phi[i] = -phi[i]
         return phi
 
-    def __init__(self, challenge, weightX, weightY, interplace):
+    def __init__(self, length, challenge, weightX, weightY, interplace):
+        self.length = length
         self.initChallenge(challenge)
         self.weightX, self.weightY = weightX, weightY
         self.interplace = interplace
-        assert self.phi.shape[-1] == self.weightX.shape[-1], "x-XOR APUF Shape Error"
-        assert self.phi.shape[-1] == self.weightY.shape[-1] - 1, "y-XOR APUF Shape Error"
-        assert self.interplace >= 0 and self.interplace < self.challenge.shape[-1], "Interpose place Error"
+        assert self.weightX.shape[-1] == self.length + 1, "x-XOR APUF Shape Error"
+        assert self.weightY.shape[-1] == self.length + 2, "y-XOR APUF Shape Error"
+        assert self.interplace >= 0 and self.interplace < self.length, "Interpose place Error"
      
     def forwardX(self):
         ans = torch.sum(self.phi * self.weightX, dim=1, keepdim=True)
@@ -103,14 +107,15 @@ class iPUF(XORAPUF):
         challenge = torch.tensor([randint(0, 1) for _ in range(length)])
         weightX = torch.normal(0, sqrt(0.05), size=(x, length + 1))
         weightY = torch.normal(0, sqrt(0.05), size=(y, length + 2))
-        return iPUF(challenge, weightX, weightY, interplace=length//2)
+        return iPUF(length, challenge, weightX, weightY, interplace=length//2)
         
 class MPUF(APUF):
-    def __init__(self, challenge, weightR, weightD):
+    def __init__(self, length, challenge, weightR, weightD):
+        self.length = length
         self.initChallenge(challenge)
         self.weightR, self.weightD = weightR, weightD
-        assert self.phi.shape[-1] == self.weightD.shape[-1], "Data APUF Shape Error"
-        assert self.phi.shape[-1] == self.weightR.shape[-1], "Select APUF Shape Error"
+        assert self.weightD.shape[-1] == self.length + 1, "Data APUF Shape Error"
+        assert self.weightR.shape[-1] == self.length + 1, "Select APUF Shape Error"
         assert self.weightD.shape[0] == 2 ** self.weightR.shape[0], "D&R not Match"
     
     def forwardR(self):
@@ -143,7 +148,7 @@ class MPUF(APUF):
         challenge = torch.tensor([randint(0, 1) for _ in range(length)])
         weightR = torch.normal(0, sqrt(0.05), size=(s, length + 1))
         weightD = torch.normal(0, sqrt(0.05), size=(2 ** s, length + 1))
-        return MPUF(challenge, weightR, weightD)
+        return MPUF(length, challenge, weightR, weightD)
 
 length = 128
 challenge = torch.tensor([randint(0, 1) for _ in range(128)])
