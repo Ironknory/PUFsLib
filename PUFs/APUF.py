@@ -38,16 +38,16 @@ class APUF:
         phi = APUF.transform(challenge)
         assert phi.shape[0] == self.length + 1, "Shape Error"
         delta = self.getDelta(phi, noisy)
-        response = 0
+        response = torch.tensor([0])
         if delta < 0:
-            response = 1
+            response[0] = 1
         return response
             
     def randomSample(length=32, noise_level=0):
         weight = torch.normal(0, sqrt(0.05), size=(length + 1,))
         return APUF(length, weight, noise_level)
 
-
+'''
 # TEST
 length = 32
 APUFSample = APUF.randomSample(length, noise_level=0.1)
@@ -61,3 +61,4 @@ challenge = torch.tensor([randint(0, 1) for _ in range(length)])
 print("Within noise, where standard response is", APUFSample.getResponse(challenge))
 for _ in range(10):
     print("Response =", APUFSample.getResponse(challenge, noisy=True))
+'''
