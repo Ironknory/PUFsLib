@@ -19,7 +19,7 @@ class APUF:
         self.length = length
         self.weight = weight
         self.noise_level = noise_level
-        assert self.weight.shape[0] == self.length + 1, "Shape Error"
+        assert self.weight.shape[-1] == self.length + 1, "Shape Error"
     
     def transform(challenge):
         phi = torch.ones(size=(challenge.shape[0] + 1,))
