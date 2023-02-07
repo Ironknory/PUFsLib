@@ -27,28 +27,27 @@ class MLPModel(nn.Module):
 
 
 class MLP:
-    def __init__(self, trainLoader, validLoader, testLoader, lr=0.1, epochs=100, momentum=0.9):
+    def __init__(self, trainLoader, validLoader, testLoader, lr=0.001, epochs=100, momentum=0.9):
         self.trainLoader, self.validLoader, self.testLoader = trainLoader, validLoader, testLoader
         self.lr = lr
         self.epochs = epochs
-        self.momentum=momentum
+        self.momentum = momentum
 
     def onXORAPUF(self, PUFSample):
         number = PUFSample.number
         sizes = [PUFSample.length + 1, 2 ** (number - 1), 2 ** number, 2 ** (number - 1), 1]
         model = MLPModel(sizes, activateFunc='tanh')
         print(model)
-        optimizer = torch.optim.SGD(model.parameters(), lr=self.lr, momentum=self.momentum)
+        optimizer = torch.optim.Adam(model.parameters(), lr=self.lr)
         for i in range(self.epochs):
             model.train()
             for (C, R) in self.trainLoader:
-                optimizer.zero_grad()
-
                 phi = transform2D(C)
                 response = model(phi)
                 R = R.to(torch.float32)
                 loss = F.binary_cross_entropy(response, R)
                 
+                optimizer.zero_grad()
                 loss.backward()
                 optimizer.step()
 

@@ -1,10 +1,6 @@
 import torch
 import torch.nn.functional as F
 
-import sys
-sys.path.append("..")
-from PUFs.APUF import APUF
-
 def transform2D(challenge):
     phi = torch.ones(size=(challenge.shape[0], challenge.shape[1] + 1))
     for i in range(phi.shape[0]):
@@ -13,26 +9,38 @@ def transform2D(challenge):
     return phi
 
 class LR:
-    def __init__(self, trainLoader, testLoader, lr=1, momentum=0):
-        self.trainLoader, self.testLoader = trainLoader, testLoader
+    def __init__(self, trainLoader, validLoader, testLoader, lr=0.1, epochs=20, momentum=0):
+        self.trainLoader, self.validLoader, self.testLoader = trainLoader, validLoader, testLoader
         self.lr = lr
-        self.momentum=momentum
+        self.epochs = epochs
+        self.momentum = momentum
 
     def onAPUF(self, PUFSample):
         weight = PUFSample.weight.clone().detach().requires_grad_(True)
-        optimizer = torch.optim.SGD([weight], lr=self.lr, momentum=self.momentum)
-        for (C, R) in self.trainLoader:
-            phi = transform2D(C)
-            delta = torch.sum(weight * phi, dim=1, keepdim=True)
-            response  = torch.sigmoid(-delta)
-            R = R.to(torch.float32)
-            loss = F.binary_cross_entropy(response, R)
+        optimizer = torch.optim.Adam([weight], lr=self.lr)
+        for i in range(self.epochs):
+            for (C, R) in self.trainLoader:
+                phi = transform2D(C)
+                delta = torch.sum(weight * phi, dim=1, keepdim=True)
+                response  = torch.sigmoid(-delta)
+                R = R.to(torch.float32)
+                loss = F.binary_cross_entropy(response, R)
 
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
+            
+            with torch.no_grad():
+                accCount = 0
+                for (C, R) in self.validLoader:
+                    phi = transform2D(C)
+                    delta = torch.sum(weight * phi, dim=1, keepdim=True)
+                    response  = torch.round(torch.sigmoid(-delta))
+                    accCount += torch.sum(response == R).item()
+                print("Epoch =", i, "Valid Accuracy =", accCount / len(self.validLoader.dataset.indices))
+
         
-        ansModel = APUF(weight.shape[-1] - 1, weight.clone().detach())
+        ansWeight = weight.clone().detach()
         accCount = 0
         for (C, R) in self.testLoader:
             phi = transform2D(C)
@@ -42,7 +50,7 @@ class LR:
                 if delta[i] < 0:
                     response[i] = 1
             accCount += torch.sum(response == R).item()
-        return ansModel, accCount / len(self.testLoader.dataset.indices)
+        return ansWeight, accCount / len(self.testLoader.dataset.indices)
 
          
             

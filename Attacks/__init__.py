@@ -1,2 +1,2 @@
-from Attacks.LR import LR
-from Attacks.MLP import MLP
+from .LR import LR
+from .MLP import MLP

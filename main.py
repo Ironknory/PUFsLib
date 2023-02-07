@@ -8,9 +8,10 @@ def testLRonAPUF():
     PUFLength = 32
     batch_size = 32
 
-    dataSize = int(1e4)
+    dataSize = int(1e3)
     trainSize = int(0.8 * dataSize)
-    testSize = dataSize - trainSize
+    validSize = int(0.1 * dataSize)
+    testSize = dataSize - trainSize - validSize
     dataSet = []
 
     PUFSample = APUF.randomSample(PUFLength)
@@ -19,20 +20,21 @@ def testLRonAPUF():
         R = PUFSample.getResponse(C)
         dataSet.append((C, R))
 
-    trainSet, testSet = random_split(dataSet, [trainSize, testSize])
+    trainSet, validSet, testSet = random_split(dataSet, [trainSize, validSize, testSize])
     trainLoader = DataLoader(trainSet, batch_size=batch_size, shuffle=True)
+    validLoader = DataLoader(validSet, batch_size=batch_size, shuffle=True)
     testLoader = DataLoader(testSet, batch_size=batch_size, shuffle=True)
 
     randomSample = APUF.randomSample(PUFLength)
-    attackMethod = LR(trainLoader, testLoader)
-    ansModel, accuracy = attackMethod.onAPUF(randomSample)
+    attackMethod = LR(trainLoader, validLoader, testLoader)
+    ansWeight, accuracy = attackMethod.onAPUF(randomSample)
     print("LR on APUF")
     print("length =", PUFLength, "accuracy =", accuracy)
 
 def testMLPonXORAPUF():
-    PUFNumber = 3
+    PUFNumber = 6
     PUFLength = 32
-    batch_size = 2
+    batch_size = 32
 
     dataSize = int(1e5)
     trainSize = int(0.8 * dataSize)

@@ -1,2 +1,2 @@
-from PUFs.APUF import APUF
-from PUFs.XORAPUF import XORAPUF
+from .APUF import APUF
+from .XORAPUF import XORAPUF
