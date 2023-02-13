@@ -32,11 +32,11 @@ def testLRonAPUF():
     print("length =", PUFLength, "accuracy =", accuracy)
 
 def testMLPonXORAPUF():
-    PUFNumber = 6
+    PUFNumber = 1
     PUFLength = 32
-    batch_size = 32
+    batch_size = 128
 
-    dataSize = int(1e5)
+    dataSize = int(2e4)
     trainSize = int(0.8 * dataSize)
     validSize = int(0.1 * dataSize)
     testSize = dataSize - trainSize - validSize

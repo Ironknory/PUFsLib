@@ -3,6 +3,7 @@ import torch.nn.functional as F
 
 def transform2D(challenge):
     phi = torch.ones(size=(challenge.shape[0], challenge.shape[1] + 1))
+    phi = phi.to(challenge.device)
     for i in range(phi.shape[0]):
         for j in range(phi.shape[1] - 2, -1, -1):
             phi[i][j] = phi[i][j + 1] * (1 - 2 * challenge[i][j])
