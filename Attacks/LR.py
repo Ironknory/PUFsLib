@@ -17,14 +17,15 @@ class LR:
         self.momentum = momentum
 
     def onAPUF(self, PUFSample):
-        weight = PUFSample.weight.clone().detach().requires_grad_(True)
+        device = torch.device('cuda')
+        
+        weight = torch.tensor(PUFSample.weight).to(device).requires_grad_(True)
         optimizer = torch.optim.Adam([weight], lr=self.lr)
         for i in range(self.epochs):
-            for (C, R) in self.trainLoader:
-                phi = transform2D(C)
+            for (phi, R) in self.trainLoader:
+                phi, R = phi.to(device), R.to(device)
                 delta = torch.sum(weight * phi, dim=1, keepdim=True)
-                response  = torch.sigmoid(-delta)
-                R = R.to(torch.float32)
+                response  = torch.sigmoid(-delta).to(torch.float32)
                 loss = F.binary_cross_entropy(response, R)
 
                 optimizer.zero_grad()
@@ -33,24 +34,23 @@ class LR:
             
             with torch.no_grad():
                 accCount = 0
-                for (C, R) in self.validLoader:
-                    phi = transform2D(C)
+                for (phi, R) in self.validLoader:
+                    phi, R = phi.to(device), R.to(device)
                     delta = torch.sum(weight * phi, dim=1, keepdim=True)
                     response  = torch.round(torch.sigmoid(-delta))
                     accCount += torch.sum(response == R).item()
                 print("Epoch =", i, "Valid Accuracy =", accCount / len(self.validLoader.dataset.indices))
 
-        
-        ansWeight = weight.clone().detach()
         accCount = 0
-        for (C, R) in self.testLoader:
-            phi = transform2D(C)
+        for (phi, R) in self.testLoader:
+            phi, R = phi.to(device), R.to(device)
             delta = torch.sum(weight * phi, dim=1, keepdim=True)
             response = torch.zeros_like(delta)
             for i in range(delta.shape[0]):
                 if delta[i] < 0:
                     response[i] = 1
             accCount += torch.sum(response == R).item()
+        ansWeight = weight.clone().detach()
         return ansWeight, accCount / len(self.testLoader.dataset.indices)
 
          

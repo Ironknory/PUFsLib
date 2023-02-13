@@ -21,6 +21,7 @@ class APUF:
         self.noise_level = noise_level
         assert self.weight.shape[-1] == self.length + 1, "Shape Error"
     
+    @staticmethod
     def transform(challenge):
         phi = np.ones(shape=(challenge.shape[0] + 1,))
         for i in range(phi.shape[0] - 2, -1, -1):

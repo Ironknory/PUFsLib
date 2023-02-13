@@ -35,7 +35,7 @@ class MLP:
 
     def onXORAPUF(self, PUFSample):
         number = PUFSample.number
-        sizes = [PUFSample.length, 2 ** (number - 1), 2 ** number, 2 ** (number - 1), 1]
+        sizes = [PUFSample.length + 1, 2 ** (number - 1), 2 ** number, 2 ** (number - 1), 1]
         model = MLPModel(sizes, activateFunc='tanh')
         print(model)
         
@@ -44,10 +44,9 @@ class MLP:
         optimizer = torch.optim.Adam(model.parameters(), lr=self.lr)
         for i in range(self.epochs):
             model.train()
-            for (C, R) in self.trainLoader:
-                C, R = C.to(device).to(torch.float32), R.to(device).to(torch.float32)
-                # phi = transform2D(C)
-                response = model(C)
+            for (phi, R) in self.trainLoader:
+                phi, R = phi.to(device), R.to(device)
+                response = model(phi)
                 loss = F.binary_cross_entropy(response, R)
                 
                 optimizer.zero_grad()
@@ -56,18 +55,17 @@ class MLP:
 
             model.eval()
             accCount = 0
-            for (C, R) in self.validLoader:
-                C, R = C.to(device).to(torch.float32), R.to(device).to(torch.float32)
-                # phi = transform2D(C)
-                response = torch.round(model(C))
+            for (phi, R) in self.validLoader:
+                phi, R = phi.to(device), R.to(device)
+                response = torch.round(model(phi))
                 accCount += torch.sum(response == R).item()
             print("Epoch =", i, "Valid Accuracy =", accCount / len(self.validLoader.dataset.indices))
         
         model.eval()
         accCount = 0
-        for (C, R) in self.testLoader:
-            C, R = C.to(device).to(torch.float32), R.to(device).to(torch.float32)
-            response = torch.round(model(C))
+        for (phi, R) in self.testLoader:
+            phi, R = phi.to(device), R.to(device)
+            response = torch.round(model(phi))
             accCount += torch.sum(response == R).item()
         return model, accCount / len(self.testLoader.dataset.indices)
             
