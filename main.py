@@ -1,4 +1,5 @@
 import torch
+import numpy as np
 from PUFs import *
 from Attacks import *
 from random import randint
