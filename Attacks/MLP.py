@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from .LR import transform2D
+from .LR import LR, transform2D
 
 class MLPModel(nn.Module):
     def __init__(self, sizes, activateFunc='tanh'):
@@ -26,12 +26,9 @@ class MLPModel(nn.Module):
         return self.layers(x)
 
 
-class MLP:
+class MLP(LR):
     def __init__(self, trainLoader, validLoader, testLoader, lr=0.001, epochs=100, momentum=0.9):
-        self.trainLoader, self.validLoader, self.testLoader = trainLoader, validLoader, testLoader
-        self.lr = lr
-        self.epochs = epochs
-        self.momentum = momentum
+        super(MLP, self).__init__(trainLoader, validLoader, testLoader, lr, epochs, momentum)
 
     def onXORAPUF(self, PUFSample):
         number = PUFSample.number
@@ -68,6 +65,4 @@ class MLP:
             response = torch.round(model(phi))
             accCount += torch.sum(response == R).item()
         return model, accCount / len(self.testLoader.dataset.indices)
-            
-
-
+    

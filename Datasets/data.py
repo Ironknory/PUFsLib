@@ -32,7 +32,3 @@ def loadData(filename, batch_size=32):
     validLoader = DataLoader(validSet, batch_size=batch_size, shuffle=True)
     testLoader = DataLoader(testSet, batch_size=batch_size, shuffle=True)
     return trainLoader, validLoader, testLoader
-    
-    
-        
-    

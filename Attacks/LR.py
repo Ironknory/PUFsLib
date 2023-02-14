@@ -52,12 +52,4 @@ class LR:
             accCount += torch.sum(response == R).item()
         ansWeight = weight.clone().detach()
         return ansWeight, accCount / len(self.testLoader.dataset.indices)
-
-         
-            
-
-
-
-            
-
-
+    
