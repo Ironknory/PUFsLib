@@ -20,17 +20,17 @@ def testLRonAPUF():
     print("length =", PUFLength, "accuracy =", accuracy)
 
 def testMLPonXORAPUF():
-    PUFNumber = 8
+    PUFNumber = 7
     PUFLength = 64
     batch_size = 4096
     
     PUFSample = XORAPUF.randomSample(PUFNumber, PUFLength)
-    filename = "./Datasets/8_64_XORAPUF_2m.csv"
-    # makeData(filename, int(2e6), PUFSample)
+    filename = "./Datasets/" + str(PUFNumber) + "_" + str(PUFLength) + "_XORAPUF_1m.csv"
+    # makeData(filename, int(1e6), PUFSample)
     
     trainLoader, validLoader, testLoader = loadData(filename, batch_size=batch_size)
     randomSample = XORAPUF.randomSample(PUFNumber, PUFLength)
-    attackMethod = MLP(trainLoader, validLoader, testLoader, epochs=200)
+    attackMethod = MLP(trainLoader, validLoader, testLoader, epochs=500)
     ansModel, accuracy = attackMethod.onXORAPUF(randomSample)
     print("MLP on XORAPUF")
     print("number =", PUFNumber, "length =", PUFLength, "accuracy =", accuracy)
@@ -38,10 +38,10 @@ def testMLPonXORAPUF():
 def testECP_TRNonXORAPUF():
     PUFNumber = 4
     PUFLength = 64
-    batch_size = 1024
+    batch_size = 4096
     
     PUFSample = XORAPUF.randomSample(PUFNumber, PUFLength)
-    filename = "./Datasets/4_64_XORAPUF_40k.csv"
+    filename = "./Datasets/4_64_XORAPUF_80k.csv"
     # makeData(filename, int(8e4), PUFSample)
     
     trainLoader, validLoader, testLoader = loadData(filename, batch_size=batch_size)

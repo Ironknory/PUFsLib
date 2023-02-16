@@ -1,3 +1,4 @@
+import time
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -30,6 +31,7 @@ class MLP(LR):
     def __init__(self, trainLoader, validLoader, testLoader, lr=0.001, epochs=100, momentum=0.9):
         super(MLP, self).__init__(trainLoader, validLoader, testLoader, lr, epochs, momentum)
 
+    # @profile
     def onXORAPUF(self, PUFSample):
         number = PUFSample.number
         sizes = [PUFSample.length + 1, 2 ** (number - 1), 2 ** number, 2 ** (number - 1), 1]
@@ -39,10 +41,11 @@ class MLP(LR):
         device = torch.device('cuda')
         model = model.to(device)
         optimizer = torch.optim.Adam(model.parameters(), lr=self.lr)
+        stTime = time.time()
         for i in range(self.epochs):
+            epstTime = time.time()
             model.train()
             for (phi, R) in self.trainLoader:
-                phi, R = phi.to(device), R.to(device)
                 response = model(phi)
                 loss = F.binary_cross_entropy(response, R)
                 
@@ -51,18 +54,25 @@ class MLP(LR):
                 optimizer.step()
 
             model.eval()
-            accCount = 0
+            accCount, totCount = 0, 0
             for (phi, R) in self.validLoader:
-                phi, R = phi.to(device), R.to(device)
                 response = torch.round(model(phi))
                 accCount += torch.sum(response == R).item()
-            print("Epoch =", i, "Valid Accuracy =", accCount / len(self.validLoader.dataset.indices))
+                totCount += R.shape[0]
+            accuracy = accCount / totCount
+            epedTime = time.time()
+            print("Epoch =", i, "Valid Accuracy =", accuracy, "Time = %.2fs" % (epedTime - epstTime))
+            if accuracy > 0.98:
+                print("Accuracy reachs the target.")
+                break
+        edTime = time.time()
+        print("Train time cost: %.2f min" % ((edTime - stTime) / 60))
         
         model.eval()
-        accCount = 0
+        accCount, totCount = 0, 0
         for (phi, R) in self.testLoader:
-            phi, R = phi.to(device), R.to(device)
             response = torch.round(model(phi))
             accCount += torch.sum(response == R).item()
-        return model, accCount / len(self.testLoader.dataset.indices)
+            totCount += R.shape[0]
+        return model, accCount / totCount
     
